@@ -3,7 +3,7 @@ from configparser import ConfigParser
 from json import loads
 # https://github.com/pypa/sampleproject/blob/master/setup.py
 # https://packaging.python.org/guides/distributing-packages-using-setuptools
-
+from src.oauth2_authcodeflow import __version__
 
 # taken from https://github.com/gsemet/pipenv-to-requirements/blob/master/pipenv_to_requirements/__init__.py
 def pkg_clean_version(pkg_name, pkg_info):
@@ -55,4 +55,5 @@ setup(
     package_dir={'': 'src'},
     include_package_data=True,
     install_requires=requirements,
+    version=__version__
 )
