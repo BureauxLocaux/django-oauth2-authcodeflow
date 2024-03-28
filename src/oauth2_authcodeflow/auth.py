@@ -69,9 +69,13 @@ class AuthenticationMixin:
     def get_or_create_user(self, request, id_claims: Dict, access_token: str) -> AbstractBaseUser:
         claims = self.get_full_claims(request, id_claims, access_token)
         username = settings.OIDC_DJANGO_USERNAME_FUNC(claims)
-        user, _ = self.UserModel.objects.get_or_create(username=username)
+        if settings.OIDC_GET_OR_CREATE_USER_FUNC:
+            user = settings.OIDC_GET_OR_CREATE_USER_FUNC(claims, username)
+        else:
+            user, _ = self.UserModel.objects.get_or_create(username=username)
+
         self.update_user(user, claims)
-        user.set_unusable_password()
+        # user.set_unusable_password()
         user.save()
         return user
 
