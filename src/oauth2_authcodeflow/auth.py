@@ -50,6 +50,7 @@ class AuthenticationMixin:
                     'verify_iss': False,
                     'verify_sub': False,
                     'verify_iat': False,
+                    'verify_nbf': False,
                     'verify_at_hash': False,
                 },
             )
