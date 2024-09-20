@@ -112,6 +112,58 @@ class AuthenticateView(CacheBaseView):
             return HttpResponseRedirect(redirect_url)
 
 
+class RawAuthenticateView(CacheBaseView):
+    """
+    Ask the OP for a temporary code (auth code flow),
+    Using at least the openid scope (OIDC).
+    Ends with a redirect.
+    """
+    http_method_names = ['get']
+
+    def get(self, request):
+        next_url = request.GET.get(settings.OIDC_REDIRECT_OK_FIELD_NAME)
+        failure_url = request.GET.get(settings.OIDC_REDIRECT_ERROR_FIELD_NAME)
+        if not next_url:
+            raise SuspiciousOperation(f"{settings.OIDC_REDIRECT_OK_FIELD_NAME} parameter is required")
+        if not failure_url:
+            raise SuspiciousOperation(f"{settings.OIDC_REDIRECT_ERROR_FIELD_NAME} parameter is required")
+        request.session[constants.SESSION_NEXT_URL] = next_url
+        request.session[constants.SESSION_FAIL_URL] = failure_url
+        url = request.session[constants.SESSION_OP_AUTHORIZATION_URL]
+        exclude_scopes = []
+        scopes = [scope for scope in settings.OIDC_RP_SCOPES if scope not in exclude_scopes]
+        use_pkce = settings.OIDC_RP_USE_PKCE
+        auth_params = {
+            'response_type': 'code',
+            'client_id': settings.OIDC_RP_CLIENT_ID,
+            'scope': ' '.join(scopes),
+            'redirect_uri': request.build_absolute_uri(reverse(constants.OIDC_URL_CALLBACK_NAME)),
+        }
+        if settings.OIDC_RP_FORCE_CONSENT_PROMPT:
+            auth_params['prompt'] = 'consent'
+        if use_pkce:
+            code_verifier = get_random_string(length=100, allowed_chars='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~')
+            code_challenge = urlsafe_b64encode(sha256(code_verifier.encode('ascii')).digest()).decode('ascii').strip('=')
+            auth_params.update({
+                'code_challenge_method': 'S256',
+                'code_challenge': code_challenge,
+            })
+            request.session[constants.SESSION_CHALLENGE] = code_verifier
+        else:
+            state = get_random_string(settings.OIDC_RANDOM_SIZE)
+            nonce = get_random_string(settings.OIDC_RANDOM_SIZE)
+            auth_params.update({
+                'state': state,
+                'nonce': nonce,
+            })
+            request.session[constants.SESSION_STATE] = state
+            request.session[constants.SESSION_NONCE] = nonce
+        request.session.save()
+        redirect_url = f'{url}?{urlencode(auth_params)}'
+
+        return redirect_url
+
+
 class CallbackView(CacheBaseView):
     """
     Callback from the OP.

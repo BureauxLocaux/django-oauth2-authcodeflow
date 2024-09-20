@@ -28,7 +28,7 @@ def get_default_django_username(claims: Dict) -> str:
 
 
 DEFAULTS = {
-    'OIDC_VIEW_AUTHENTICATE': f'{__package__}.views.AuthenticateView',
+    'OIDC_VIEW_AUTHENTICATE': f'{__package__}.views.RawAuthenticateView',
     'OIDC_VIEW_CALLBACK': f'{__package__}.views.CallbackView',
     'OIDC_VIEW_LOGOUT': f'{__package__}.views.LogoutView',
     'OIDC_VIEW_TOTAL_LOGOUT': f'{__package__}.views.TotalLogoutView',
