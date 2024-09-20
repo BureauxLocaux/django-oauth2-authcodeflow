@@ -13,7 +13,7 @@ from requests import post as request_post
 
 from .conf import constants, settings
 from .models import BlacklistedToken
-from .utils import OIDCUrlsMixin
+from .utils import CA_HEADERS, OIDCUrlsMixin
 
 
 class AuthenticationMixin:
@@ -86,7 +86,10 @@ class AuthenticationMixin:
             claims = id_claims.copy()
             claims.update(request_get(
                 request.session[constants.SESSION_OP_USERINFO_URL],
-                headers={'Authorization': f'{settings.OIDC_AUTHORIZATION_HEADER_PREFIX} {access_token}'},
+                headers={
+                    'Authorization': f'{settings.OIDC_AUTHORIZATION_HEADER_PREFIX} {access_token}',
+                    **CA_HEADERS,
+                },
             ).json())
             return claims
         else:
@@ -150,7 +153,7 @@ class AuthenticationBackend(ModelBackend, AuthenticationMixin):
             }
             if use_pkce:
                 params['code_verifier'] = code_verifier
-            resp = request_post(request.session[constants.SESSION_OP_TOKEN_URL], data=params)
+            resp = request_post(request.session[constants.SESSION_OP_TOKEN_URL], data=params, headers=CA_HEADERS)
             if resp.status_code != 200:
                 raise SuspiciousOperation(f"{resp.status_code} {resp.text}")
             result = resp.json()

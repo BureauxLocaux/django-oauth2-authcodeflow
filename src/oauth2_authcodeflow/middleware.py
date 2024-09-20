@@ -12,6 +12,8 @@ from django.utils.deprecation import MiddlewareMixin
 from django.utils.module_loading import import_string
 from requests import post as request_post
 
+from oauth2_authcodeflow.utils import CA_HEADERS
+
 from .auth import AuthenticationBackend, BearerAuthenticationBackend
 from .conf import constants, settings
 from .models import BlacklistedToken
@@ -139,7 +141,7 @@ class RefreshAccessTokenMiddleware(Oauth2MiddlewareMixin):
             'client_secret': settings.OIDC_RP_CLIENT_SECRET,
             'refresh_token': request.session[constants.SESSION_REFRESH_TOKEN],
         }
-        resp = request_post(request.session[constants.SESSION_OP_TOKEN_URL], data=params)
+        resp = request_post(request.session[constants.SESSION_OP_TOKEN_URL], data=params, headers=CA_HEADERS)
         if not resp:
             error(resp.text)
             raise MiddlewareException(resp.text)

@@ -8,6 +8,10 @@ from .conf import (
     settings,
 )
 
+CA_HEADERS = {
+    "User-Agent": "BL-APP",
+}
+
 
 class OIDCUrlsMixin:
     def get_oidc_urls(self, session: Dict[str, str]) -> Dict[str, str]:
@@ -20,7 +24,7 @@ class OIDCUrlsMixin:
                 constants.SESSION_OP_JWKS_URL not in session,
                 constants.SESSION_OP_END_SESSION_URL not in session,
             )):
-                doc_resp = request_get(settings.OIDC_OP_DISCOVERY_DOCUMENT_URL)
+                doc_resp = request_get(settings.OIDC_OP_DISCOVERY_DOCUMENT_URL, headers=CA_HEADERS)
                 doc_resp.raise_for_status()
                 doc = doc_resp.json()
                 session[constants.SESSION_OP_AUTHORIZATION_URL] = doc.get('authorization_endpoint')
@@ -48,7 +52,7 @@ class OIDCUrlsMixin:
                 raise ImproperlyConfigured(f'OIDC_{conf} is undefined')
         if not session.get(constants.SESSION_OP_JWKS):
             if session.get(constants.SESSION_OP_JWKS_URL):
-                jwks_resp = request_get(session[constants.SESSION_OP_JWKS_URL])
+                jwks_resp = request_get(session[constants.SESSION_OP_JWKS_URL], headers=CA_HEADERS)
                 jwks_resp.raise_for_status()
                 jwks = jwks_resp.json()['keys']
             else:
