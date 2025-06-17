@@ -199,13 +199,15 @@ class AuthenticationBackend(ModelBackend, AuthenticationMixin):
                 if not code or not state or not nonce:
                     raise SuspiciousOperation('code, state and nonce values are required')
             params = self.build_token_request_params(request, use_pkce, code, code_verifier)
+
+            headers = CA_HEADERS.copy()
+            if use_pkce:
+                headers['origin'] = params['redirect_uri']  # Some OP server require the Origin header when using PKCE
+
             resp = request_post(
                 request.session[constants.SESSION_OP_TOKEN_URL],
                 data=params,
-                headers={
-                    'origin': params['redirect_uri'],  # Some OP server require the Origin header when using PKCE
-                    **CA_HEADERS,
-                }
+                headers=headers,
             )
             if resp.status_code != 200:
                 raise SuspiciousOperation(f"{resp.status_code} {resp.text}")
