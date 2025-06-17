@@ -33,7 +33,7 @@ from .conf import (
     settings,
 )
 from .models import BlacklistedToken
-from .utils import OIDCUrlsMixin
+from .utils import CA_HEADERS, OIDCUrlsMixin
 
 logger = getLogger(__name__)
 
@@ -70,6 +70,7 @@ class AuthenticationMixin:
                     'verify_iss': False,
                     'verify_sub': False,
                     'verify_iat': False,
+                    'verify_nbf': False,
                     'verify_at_hash': False,
                 },
             )
@@ -89,8 +90,11 @@ class AuthenticationMixin:
     def get_or_create_user(self, request, id_claims: Dict, access_token: str) -> AbstractUser:
         claims = self.get_full_claims(request, id_claims, access_token)
         username = settings.OIDC_DJANGO_USERNAME_FUNC(claims)
-        user, created = self.UserModel.objects.get_or_create(username=username)
-        self.update_user(user, created, claims, request, access_token)
+        if settings.OIDC_GET_OR_CREATE_USER_FUNC:
+            user = settings.OIDC_GET_OR_CREATE_USER_FUNC(claims, username)
+        else:
+            user, _ = self.UserModel.objects.get_or_create(username=username)
+        self.update_user(user, claims, request, access_token)
         user.save()
         return user
 
@@ -100,13 +104,16 @@ class AuthenticationMixin:
             claims = id_claims.copy()
             claims.update(request_get(
                 request.session[constants.SESSION_OP_USERINFO_URL],
-                headers={'Authorization': f'{settings.OIDC_AUTHORIZATION_HEADER_PREFIX} {access_token}'},
+                headers={
+                    'Authorization': f'{settings.OIDC_AUTHORIZATION_HEADER_PREFIX} {access_token}',
+                    **CA_HEADERS,
+                },
             ).json())
             return claims
         else:
             return id_claims
 
-    def update_user(self, user: AbstractUser, created: bool, claims: Dict, request, access_token: str) -> None:
+    def update_user(self, user: AbstractUser, claims: Dict, request, access_token: str) -> None:
         """update the django user with data from the claims"""
         if callable(settings.OIDC_EMAIL_CLAIM):
             user.email = settings.OIDC_EMAIL_CLAIM(claims)
@@ -123,8 +130,8 @@ class AuthenticationMixin:
             user.last_name = settings.OIDC_LASTNAME_CLAIM(claims)
         else:
             user.last_name = claims.get(settings.OIDC_LASTNAME_CLAIM, '')
-        if settings.OIDC_UNUSABLE_PASSWORD or created:
-            user.set_unusable_password()
+        # if settings.OIDC_UNUSABLE_PASSWORD or created:
+        #     user.set_unusable_password()
         if callable(settings.OIDC_EXTEND_USER):
             extend_user = settings.OIDC_EXTEND_USER
             if len(signature(extend_user).parameters) > 2:
@@ -195,7 +202,10 @@ class AuthenticationBackend(ModelBackend, AuthenticationMixin):
             resp = request_post(
                 request.session[constants.SESSION_OP_TOKEN_URL],
                 data=params,
-                headers=dict(origin=params['redirect_uri']),  # Some OP server require the Origin header when using PKCE
+                headers={
+                    'origin': params['redirect_uri'],  # Some OP server require the Origin header when using PKCE
+                    **CA_HEADERS,
+                }
             )
             if resp.status_code != 200:
                 raise SuspiciousOperation(f"{resp.status_code} {resp.text}")

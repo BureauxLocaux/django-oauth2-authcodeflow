@@ -134,7 +134,7 @@ class AuthenticateView(CacheBaseView, UrlParamsMixin):
         claims_parameter = self.get_claims_parameter(request)
         if claims_parameter:
             auth_params['claims'] = json.dumps(claims_parameter)
-        if 'offline_access' in scopes or settings.OIDC_RP_FORCE_CONSENT_PROMPT:
+        if settings.OIDC_RP_FORCE_CONSENT_PROMPT:
             auth_params['prompt'] = 'consent'
         if use_pkce:
             self.fill_params_for_pkce(request, session_updates, auth_params, from_cli)

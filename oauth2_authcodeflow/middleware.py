@@ -38,6 +38,8 @@ from .conf import (
 )
 from .models import BlacklistedToken
 
+from .utils import CA_HEADERS
+
 logger = getLogger(__name__)
 
 
@@ -251,7 +253,7 @@ class RefreshAccessTokenMiddleware(Oauth2MiddlewareMixin):
         # PKCE allows to have empty client secret, in that case the parameter should not be set.
         if not settings.OIDC_RP_USE_PKCE or settings.OIDC_RP_FORCE_SECRET_WITH_PKCE:
             params['client_secret'] = settings.OIDC_RP_CLIENT_SECRET or ''
-        resp = request_post(request.session[constants.SESSION_OP_TOKEN_URL], data=params)
+        resp = request_post(request.session[constants.SESSION_OP_TOKEN_URL], data=params, headers=CA_HEADERS)
         if not resp:
             logger.error(resp.text)
             raise MiddlewareException(resp.text)
