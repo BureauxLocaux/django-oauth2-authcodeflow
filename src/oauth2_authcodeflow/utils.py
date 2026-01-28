@@ -10,6 +10,7 @@ from .conf import (
 
 CA_HEADERS = {
     "User-Agent": "BL-APP",
+    "x-costar-security-id": settings.OIDC_RP_CLIENT_X_COSTAR_SECURITY_ID,
 }
 
 
