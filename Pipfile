@@ -9,7 +9,7 @@ semver = "*"
 
 [packages]
 # django = "<4.0"
-"python-jose[cryptography]" = "*"
+"pyjwt[crypto]" = ">=2.0"
 requests = "*"
 
 [requires]

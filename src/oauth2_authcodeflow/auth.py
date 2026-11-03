@@ -7,7 +7,7 @@ from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import AbstractBaseUser
 from django.core.exceptions import SuspiciousOperation
 from django.urls import reverse
-from jose import jwt
+import jwt
 from requests import get as request_get
 from requests import post as request_post
 
@@ -18,7 +18,10 @@ from .utils import CA_HEADERS, OIDCUrlsMixin
 
 class AuthenticationMixin:
     def validate_and_decode_id_token(self, id_token: str, nonce: Optional[str], jwks: Dict) -> Dict:
-        header = jwt.get_unverified_header(id_token)
+        try:
+            header = jwt.get_unverified_header(id_token)
+        except jwt.PyJWTError as e:
+            raise SuspiciousOperation("JWT token header decoding failed: " + str(e))
         if 'alg' not in header:
             raise SuspiciousOperation("No alg value found in header")
         algo = header['alg']
@@ -35,15 +38,13 @@ class AuthenticationMixin:
             key = settings.OIDC_RP_CLIENT_SECRET
         else:
             raise NotImplementedError(f"Algo {algo} cannot be handled by this authentication backend")
-        if isinstance(key, dict):
-            secret = key
-        else:  # RSA public key (bytes)
-            secret = key
         try:
+            # PyJWT does not accept a JWK dict as key, a PEM public key (bytes/str) is used as-is
+            secret = jwt.PyJWK(key, algorithm=algo).key if isinstance(key, dict) else key
             claims = jwt.decode(
                 id_token,
                 secret,
-                algorithms=settings.OIDC_RP_SIGN_ALGOS_ALLOWED,
+                algorithms=list(settings.OIDC_RP_SIGN_ALGOS_ALLOWED),
                 audience=settings.OIDC_RP_CLIENT_ID,
                 options={
                     'verify_aud': True,
@@ -51,10 +52,9 @@ class AuthenticationMixin:
                     'verify_sub': False,
                     'verify_iat': False,
                     'verify_nbf': False,
-                    'verify_at_hash': False,
                 },
             )
-        except jwt.JWTError as e:
+        except jwt.PyJWTError as e:
             raise SuspiciousOperation("JWT token verification failed: " + str(e))
         if nonce is not None and claims.get('nonce') != nonce:
             raise SuspiciousOperation("JWT Nonce verification failed")
