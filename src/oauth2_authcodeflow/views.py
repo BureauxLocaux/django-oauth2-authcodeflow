@@ -16,7 +16,7 @@ from django.utils.decorators import method_decorator
 from django.utils.http import urlencode
 from django.views.decorators.cache import never_cache
 from django.views.generic import View
-from jose import jwt
+import jwt
 from urllib.parse import parse_qs
 
 from .conf import (
@@ -130,21 +130,21 @@ class CallbackView(CacheBaseView):
             try:
                 jwt.get_unverified_header(state)
                 from_cli = True
-            except jwt.JWTError:
+            except jwt.PyJWTError:
                 from_cli = False
             if from_cli:
                 debug("Try to get the session from the state parameter instead of using cookies")
                 try:
                     # as called from CLI initialy, the session will not be in the cookie.
                     # hence, load the session from the session_key stored in the jwt state
-                    session_key = jwt.decode(state, settings.SECRET_KEY, 'HS256')['session_key']
+                    session_key = jwt.decode(state, settings.SECRET_KEY, algorithms=['HS256'])['session_key']
                     old_session_items = request.session.items()
                     request.session = self.SessionStore(session_key)
                     for key, value in old_session_items:
                         if key not in request.session:
                             request.session[key] = value
                     debug(f"request.session replaced with {request.session.session_key=}")
-                except (jwt.JWTError, KeyError):
+                except (jwt.PyJWTError, KeyError):
                     return HttpResponseBadRequest("state appears to be a JWT but the signature failed".encode('utf8'))
         else:
             from_cli = False
@@ -314,7 +314,7 @@ class LogoutByOPView(CacheBaseView):
                 raise ValueError("sid parameter is required for logout by OP")
             id_token = request.session.get(constants.SESSION_ID_TOKEN)
             if id_token:
-                claims = jwt.get_unverified_claims(id_token)
+                claims = jwt.decode(id_token, options={'verify_signature': False})
                 if claims.get('sid', sid) != sid:
                     raise ValueError("bad sid parameter")
                 BlacklistedToken.blacklist(id_token)
