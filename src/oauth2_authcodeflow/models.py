@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.utils import DatabaseError
 from django.utils.functional import cached_property
-from jose import jwt
+import jwt
 from pytz import utc
 
 from .conf import settings
@@ -31,7 +31,7 @@ class BlacklistedToken(models.Model):
 
     @classmethod
     def blacklist(cls, token: str):
-        claims = jwt.get_unverified_claims(token)
+        claims = jwt.decode(token, options={'verify_signature': False})
         username = settings.OIDC_DJANGO_USERNAME_FUNC(claims)
         now = datetime.now(tz=utc)
         expires_at = datetime.fromtimestamp(claims['exp'], tz=utc) if 'exp' in claims else now + timedelta(settings.OIDC_BLACKLIST_TOKEN_TIMEOUT_SECONDS)
@@ -43,7 +43,7 @@ class BlacklistedToken(models.Model):
 
     @classmethod
     def is_blacklisted(cls, token: str):
-        claims = jwt.get_unverified_claims(token)
+        claims = jwt.decode(token, options={'verify_signature': False})
         username = settings.OIDC_DJANGO_USERNAME_FUNC(claims)
         return cls.objects.filter(username=username, token=token).count() > 0
 
