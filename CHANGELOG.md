@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Allow `user` extension with a callable using `claims`
 ## Fixed
 - User `email` field was filled with raw `email` value instead of actual value if `OIDC_EMAIL_CLAIM` was not set.
+## Security
+- Replace `python-jose` by `PyJWT`, which also removes its `ecdsa` and `rsa` dependencies:
+  - python-jose algorithm confusion with DER-encoded public keys (CVE-2026-85394 / GHSA-3qf3-8w2g-rqmx)
+  - ecdsa Minerva timing attack on P-256 (CVE-2024-23342 / GHSA-wj6h-64fc-37mp)
+  - `rsa` is no longer maintained (archived project)
 
 # 0.3.2
 ## Fixed
